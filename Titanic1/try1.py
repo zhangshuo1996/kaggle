@@ -1,28 +1,25 @@
 # Load in our libraries
-import pandas as pd
-import numpy as np
-import re
-import sklearn
-import xgboost as xgb
-import seaborn as sns
-import matplotlib.pyplot as plt
-# %matplotlib inline
-
-import plotly.offline as py
-from plotly.offline import iplot
-from plotly.offline import plot
-# py.init_notebook_mode(connected=True)
-import plotly.graph_objs as go
-import plotly.tools as tls
-
-import warnings
-warnings.filterwarnings('ignore')
-
-# Going to use these 5 base models for the stacking
 from sklearn.ensemble import (RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, ExtraTreesClassifier)
 from sklearn.svm import SVC
 # from sklearn.cross_validation import KFold
 from sklearn.model_selection import KFold
+import pandas as pd
+import numpy as np
+import re
+# import sklearn
+import xgboost as xgb
+import seaborn as sns
+import matplotlib.pyplot as plt
+import plotly.offline as py
+# from plotly.offline import iplot
+from plotly.offline import plot
+# py.init_notebook_mode(connected=True)
+import plotly.graph_objs as go
+# import plotly.tools as tls
+import warnings
+warnings.filterwarnings('ignore')
+# Going to use these 5 base models for the stacking
+
 
 train = pd.read_csv('./input/train.csv')
 test = pd.read_csv('./input/test.csv')
@@ -36,17 +33,21 @@ PassengerId = test['PassengerId']
 
 full_data = [train, test]
 
+
 # 获取序号以及名字的长度
 train['Name_length'] = train['Name'].apply(len)
 test['Name_length'] = test['Name'].apply(len)
+
 
 # 获取序号以及是否有cabin
 train['Has_Cabin'] = train["Cabin"].apply(lambda x: 0 if type(x) == float else 1)
 test['Has_Cabin'] = test["Cabin"].apply(lambda x: 0 if type(x) == float else 1)
 
+
 # Create new feature FamilySize as a combination of SibSp and Parch
 for dataset in full_data:
     dataset['FamilySize'] = dataset['SibSp'] + dataset['Parch'] + 1
+
 
 # Create new feature IsAlone from FamilySize
 for dataset in full_data:
@@ -54,31 +55,33 @@ for dataset in full_data:
     # 对满足 dataset['FamilySize'] == 1 的数据行 加上IsAlone标签， 新建的特征IsAlone=1
     dataset.loc[dataset['FamilySize'] == 1, 'IsAlone'] = 1
 
+
 # Remove all NULLS in the Embarked column
 for dataset in full_data:
     # 应该是用S来填充缺失的数据
     dataset['Embarked'] = dataset['Embarked'].fillna('S')
 
+
 # Remove all NULLS in the Fare column and
 for dataset in full_data:
     dataset['Fare'] = dataset['Fare'].fillna(train['Fare'].median())
 
+
 # 创建一个新的特征 CategoricalFare，特征的值意味着train['Fare']值所对应的区间，
 train['CategoricalFare'] = pd.qcut(train['Fare'], 4)
+
 
 # Create a New feature CategoricalAge
 for dataset in full_data:
     age_avg = dataset['Age'].mean()
-
-    # 计算样本方差（除以n-1）
-    age_std = dataset['Age'].std()
+    age_std = dataset['Age'].std()  # 计算样本方差（除以n-1）
     age_null_count = dataset['Age'].isnull().sum()
     age_null_random_list = np.random.randint(age_avg - age_std, age_avg + age_std, size=age_null_count)
     dataset['Age'][np.isnan(dataset['Age'])] = age_null_random_list
-    # 数据类型的转换
-    dataset['Age'] = dataset['Age'].astype(int)
+    dataset['Age'] = dataset['Age'].astype(int)  # 数据类型的转换
 # 序号 以及train['Age']对应的区间
 train['CategoricalAge'] = pd.cut(train['Age'], 5)
+
 
 # Define function to extract titles from passenger names
 def get_title(name):
@@ -88,12 +91,14 @@ def get_title(name):
         return title_search.group(1)
     return ""
 
+
 # Create a new feature Title, containing the titles of passenger names
 for dataset in full_data:
     dataset['Title'] = dataset['Name'].apply(get_title)
 
 
 for dataset in full_data:
+
     # 将列表中出现的词['Lady',...]替换为'Rare'
     dataset['Title'] = dataset['Title'].replace(['Lady', 'Countess', 'Capt', 'Col', 'Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')
 
@@ -102,6 +107,8 @@ for dataset in full_data:
     dataset['Title'] = dataset['Title'].replace('Ms', 'Miss')
     dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')
 print("--"*20)
+
+
 for dataset in full_data:
     # Mapping Sex 将male映射为整数的1， female转换为整数的0
     dataset['Sex'] = dataset['Sex'].map({'female': 0, 'male': 1}).astype(int)
@@ -143,28 +150,32 @@ plt.figure(figsize=(14, 12))
 plt.title('Pearson Correlation of Features', y=1.05, size=15)
 sns.heatmap(train.astype(float).corr(), linewidths=0.1, vmax=1.0,
             square=True, cmap=colormap, linecolor='white', annot=True)
+plt.show()
+# g = sns.pairplot(train[[u'Survived', u'Pclass', u'Sex', u'Age', u'Parch', u'Fare', u'Embarked', u'FamilySize', u'Title']],
+#                  hue='Survived', palette='seismic', size=1.2, diag_kind='kde', diag_kws=dict(shade=True),
+#                  plot_kws=dict(s=10))
+# g = sns.pairplot(train[[u'Survived', u'Pclass', u'Sex', u'Age', u'Parch', u'Fare', u'Embarked', u'FamilySize', u'Title']], hue='Survived', palette='seismic', size=1.2, diag_kind='kde', diag_kws=dict(shade=True), plot_kws=dict(s=10))
+g = sns.pairplot(train[[u'Survived', u'Pclass', u'Sex', u'Age', u'Parch', u'Fare', u'Embarked', u'FamilySize', u'Title']], palette='seismic', size=1.2, diag_kind='kde', diag_kws=dict(shade=True), plot_kws=dict(s=10))
+g.set(xticklabels=[])
 # plt.show()
-# g = sns.pairplot(train[[u'Survived', u'Pclass', u'Sex', u'Age', u'Parch', u'Fare', u'Embarked', u'FamilySize', u'Title']], hue='Survived', palette='seismic', size=1.2, diag_kind='kde', diag_kws=dict(shade=True), plot_kws=dict(s=10))
-# g = sns.pairplot(train[[u'Survived', u'Pclass', u'Sex', u'Age', u'Parch', u'Fare', u'Embarked', u'FamilySize', u'Title']], hue='Survived', palette='seismic', size=1.2, diag_kind='kde', diag_kws=dict(shade=True), plot_kws=dict(s=10))
-# g = sns.pairplot(train[[u'Survived', u'Pclass', u'Sex', u'Age', u'Parch', u'Fare', u'Embarked', u'FamilySize', u'Title']], )
-# g.set(xticklabels=[])
-
 
 # --------------------------------------------------------------------------------------
 # Some useful parameters which will come in handy later on
 
-ntrain = train.shape[0]
+ntrain = train.shape[0]  # 训练集总的样本数量891, 行数
 
-ntest = test.shape[0]
+ntest = test.shape[0]  # 测试样本集的数量
 SEED = 0  # for reproducibility
 NFOLDS = 5  # set folds for out-of-fold prediction
-print(ntrain, ntest)
-print(type(ntrain))
+print(ntrain, ntest)  # 891 418
+print(type(ntrain))  # int
 # kf = KFold(n_splits=5, random_state=SEED, shuffle=False)
 kf = KFold(n_splits=NFOLDS, random_state=SEED, shuffle=False)
 vec = np.arange(0, ntrain)
 
 # Class to extend the Sklearn classifier
+
+
 class SklearnHelper(object):
     def __init__(self, clf, seed=0, params=None):
         params['random_state'] = seed
@@ -193,10 +204,12 @@ def get_oof(clf, x_train, y_train, x_test):
     :param x_test:
     :return:
     '''
-    oof_train = np.zeros((ntrain,))
+    oof_train = np.zeros((ntrain,))  # 构建一个长度为训练样本集长度的全0向量
     oof_test = np.zeros((ntest,))
     oof_test_skf = np.empty((NFOLDS, ntest))  # 构建一个长度是NFolds*ntest的列表，内容采用内存上的任意值来填充
-
+    '''
+        将样本分成10份，挑出其中的9 份作为训练样本，剩下的一份作为测试样本， 这个过程重复五次
+    '''
     for i, (train_index, test_index) in enumerate(kf.split(vec)):
         # print(i)
         # print(train_index)
@@ -206,14 +219,30 @@ def get_oof(clf, x_train, y_train, x_test):
         x_tr = x_train[train_index]
         y_tr = y_train[train_index]
         x_te = x_train[test_index]
+        # y_te = y_train[test_index]
         # print(y_tr)
         clf.train(x_tr, y_tr)
 
-        oof_train[test_index] = clf.predict(x_te)
+        oof_train[test_index] = clf.predict(x_te)  # 训练出的模型用于测试数据
+        # print("test--"*50)
+        # count = 0
+        # for i in test_index:
+        #     if y_te[i] == oof_train[i]:
+        #         count += 1
+        # print(count/len(test_index))
+        # print("test--"*50)
         oof_test_skf[i, :] = clf.predict(x_test)
         # break
-
-    oof_test[:] = oof_test_skf.mean(axis=0)
+    # print("*"*50)
+    # print(oof_test_skf)
+    # oof_test[:] = oof_test_skf.mean(axis=0)
+    # print("&"*50)
+    # print(oof_test)
+    # print("^"*50)
+    # print(oof_test.reshape(-1, 1))
+    '''
+        reshape 用于改变数组的形状，-1表示我们不知道他的行数到底是多少，最终的元素数目不变，要将其转换成n行一列的形状
+    '''
     return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1)
 
 
@@ -221,9 +250,9 @@ def get_oof(clf, x_train, y_train, x_test):
 # Random Forest parameters
 rf_params = {
     'n_jobs': -1,
-    'n_estimators': 500,
+    'n_estimators': 500,  # 森林中树的数量
      'warm_start': True,
-     #'max_features': 0.2,
+     # 'max_features': 0.2,
     'max_depth': 6,
     'min_samples_leaf': 2,
     'max_features': 'sqrt',
@@ -234,7 +263,7 @@ rf_params = {
 et_params = {
     'n_jobs': -1,
     'n_estimators': 500,
-    #'max_features': 0.5,
+    # 'max_features': 0.5,
     'max_depth': 8,
     'min_samples_leaf': 2,
     'verbose': 0
@@ -249,7 +278,7 @@ ada_params = {
 # Gradient Boosting parameters
 gb_params = {
     'n_estimators': 500,
-     #'max_features': 0.2,
+     # 'max_features': 0.2,
     'max_depth': 5,
     'min_samples_leaf': 2,
     'verbose': 0
@@ -269,7 +298,7 @@ gb = SklearnHelper(clf=GradientBoostingClassifier, seed=SEED, params=gb_params)
 svc = SklearnHelper(clf=SVC, seed=SEED, params=svc_params)
 
 # Create Numpy arrays of train, test and target ( Survived) dataframes to feed into our models
-y_train = train['Survived'].ravel()
+y_train = train['Survived'].ravel()  # 将多维数组转换为一维数组, 不会产生原数据的副本
 train = train.drop(['Survived'], axis=1)
 x_train = train.values  # Creates an array of the train data
 x_test = test.values  # Creats an array of the test data
@@ -284,32 +313,37 @@ svc_oof_train, svc_oof_test = get_oof(svc, x_train, y_train, x_test)  # Support 
 
 print("Training is complete")
 
+'''
+    计算特征的重要性
+'''
 rf_feature = rf.feature_importances(x_train, y_train)
 et_feature = et.feature_importances(x_train, y_train)
 ada_feature = ada.feature_importances(x_train, y_train)
 gb_feature = gb.feature_importances(x_train, y_train)
 
-rf_features = [0.10474135,  0.21837029,  0.04432652,  0.02249159,  0.05432591,  0.02854371
-  ,0.07570305,  0.01088129 , 0.24247496,  0.13685733 , 0.06128402]
-et_features = [ 0.12165657,  0.37098307  ,0.03129623 , 0.01591611 , 0.05525811 , 0.028157
-  ,0.04589793, 0.02030357 , 0.17289562 , 0.04853517,  0.08910063]
-ada_features = [0.028,   0.008,      0.012   ,     0.05866667,   0.032 ,       0.008
-  ,0.04666667 ,  0.     ,      0.05733333,   0.73866667,   0.01066667]
-gb_features = [ 0.06796144 , 0.03889349 , 0.07237845 , 0.02628645 , 0.11194395,  0.04778854
-  ,0.05965792 , 0.02774745,  0.07462718,  0.4593142 ,  0.01340093]
+print(rf_feature)
+print(et_feature)
+print(ada_feature)
+print(gb_feature)
+
+rf_features = [0.10474135,  0.21837029,  0.04432652,  0.02249159,  0.05432591,  0.02854371, 0.07570305,  0.01088129, 0.24247496, 0.13685733, 0.06128402]
+et_features = [0.12165657,  0.37098307, 0.03129623, 0.01591611, 0.05525811, 0.028157, 0.04589793, 0.02030357, 0.17289562, 0.04853517, 0.08910063]
+ada_features = [0.028, 0.008, 0.012,     0.05866667,   0.032, 0.008, 0.04666667,  0., 0.05733333, 0.73866667, 0.01066667]
+gb_features = [0.06796144, 0.03889349, 0.07237845, 0.02628645, 0.11194395,  0.04778854, 0.05965792 , 0.02774745,  0.07462718,  0.4593142,  0.01340093]
 
 cols = train.columns.values  # 特征名称列表
 # print("cols..")
 # print(cols)
 
 # Create a dataframe with features
-feature_dataframe = pd.DataFrame( {'features': cols,
+feature_dataframe = pd.DataFrame({'features': cols,  # 特征名称列表
      'Random Forest feature importances': rf_features,
      'Extra Trees  feature importances': et_features,
       'AdaBoost feature importances': ada_features,
     'Gradient Boost feature importances': gb_features
     })
 
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Scatter plot
 trace = go.Scatter(
@@ -343,11 +377,11 @@ layout = go.Layout(
         ticklen=5,
         gridwidth=2
     ),
-    showlegend= False
+    showlegend=False
 )
 
 fig = go.Figure(data=data, layout=layout)
-# plot(fig, filename='scatter2010')
+plot(fig, filename='scatter2010')
 
 # Scatter plot
 trace = go.Scatter(
@@ -450,25 +484,27 @@ layout = go.Layout(
     autosize=True,
     title='Gradient Boosting Feature Importance',
     hovermode='closest',
-#     xaxis= dict(
+# xaxis= dict(
 #         title= 'Pop',
 #         ticklen= 5,
 #         zeroline= False,
 #         gridwidth= 2,
 #     ),
     yaxis=dict(
-        title= 'Feature Importance',
-        ticklen= 5,
-        gridwidth= 2
+        title='Feature Importance',
+        ticklen=5,
+        gridwidth=2
     ),
     showlegend=False
 )
 fig = go.Figure(data=data, layout=layout)
 # py.plot(fig, filename='scatter2010')
 
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 # Create the new column containing the average of values
 feature_dataframe['mean'] = feature_dataframe.mean(axis=1)  # axis = 1 computes the mean row-wise
-print(feature_dataframe.head(3))
+# print(feature_dataframe.head(3))
 
 
 y = feature_dataframe['mean'].values
@@ -489,7 +525,7 @@ data = [go.Bar(
 layout = go.Layout(
     autosize=True,
     title='Barplots of Mean Feature Importance',
-    hovermode= 'closest',
+    hovermode='closest',
 #     xaxis= dict(
 #         title= 'Pop',
 #         ticklen= 5,
@@ -497,30 +533,78 @@ layout = go.Layout(
 #         gridwidth= 2,
 #     ),
     yaxis=dict(
-        title= 'Feature Importance',
-        ticklen= 5,
-        gridwidth= 2
+        title='Feature Importance',
+        ticklen=5,
+        gridwidth=2
     ),
-    showlegend= False
+    showlegend=False
 )
 fig = go.Figure(data=data, layout=layout)
 # py.plot(fig, filename='bar-direct-labels')
 
-base_predictions_train = pd.DataFrame( {'RandomForest': rf_oof_train.ravel(),
+base_predictions_train = pd.DataFrame({'RandomForest': rf_oof_train.ravel(),
      'ExtraTrees': et_oof_train.ravel(),
      'AdaBoost': ada_oof_train.ravel(),
       'GradientBoost': gb_oof_train.ravel()
     })
-print(base_predictions_train.head())
+# print(base_predictions_train.head())
 
 data = [
     go.Heatmap(
-        z= base_predictions_train.astype(float).corr().values,
+        z=base_predictions_train.astype(float).corr().values,
         x=base_predictions_train.columns.values,
-        y= base_predictions_train.columns.values,
+        y=base_predictions_train.columns.values,
         colorscale='Viridis',
         showscale=True,
         reversescale=True
     )
 ]
 py.plot(data, filename='labelled-heatmap')
+
+'''
+    np.concatenate
+    1. 传入的参数必须是一个多个数组的元祖或者列表
+    2. axis指定拼接的方向，默认是axis=0 也就是说对0轴的数组对象进行纵向的拼接（纵向的拼接沿着axis= 1方向）；
+        注：一般axis = 0，就是对该轴向的数组进行操作，操作方向是另外一个轴，即axis=1。
+'''
+x_train = np.concatenate((et_oof_train, rf_oof_train, ada_oof_train, gb_oof_train, svc_oof_train), axis=1)  # 将这五个n*1的向量拼接成1个n*5的向量
+
+x_test = np.concatenate((et_oof_test, rf_oof_test, ada_oof_test, gb_oof_test, svc_oof_test), axis=1)
+
+# print("$"*50)
+# print((et_oof_train, rf_oof_train, ada_oof_train, gb_oof_train, svc_oof_train))
+# print("$"*50)
+# print(x_train)
+# print(len(x_train))
+# print("$"*50)
+# print(x_test)
+# print(len(x_test))
+
+gbm = xgb.XGBClassifier(
+    #learning_rate = 0.02,
+     n_estimators=2000,
+     max_depth=4,
+     min_child_weight=2,
+     #gamma=1,
+     gamma=0.9,
+     subsample=0.8,
+     colsample_bytree=0.8,
+     objective='binary:logistic',
+     nthread=-1,
+     scale_pos_weight=1
+).fit(x_train, y_train)
+predictions = gbm.predict(x_test)
+
+# Generate Submission File
+StackingSubmission = pd.DataFrame({'PassengerId': PassengerId,
+                            'Survived': predictions})
+StackingSubmission.to_csv("StackingSubmission.csv", index=False)
+
+
+
+
+# print("-"*50)
+# print(x_train)
+# print(len(x_train))
+# print(x_test)
+# print(len(x_test))
